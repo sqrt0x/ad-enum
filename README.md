@@ -1,117 +1,77 @@
-# AD-Enum 
+# 🥷 ad-enum
 
-A lightweight Active Directory enumeration and credential spraying tool designed to streamline common enumeration workflows during penetration testing.
-
-> This tool is hard-coded (not the best and has had many issues) and is primarily built for my practice and preparation for the **OSCP+** exam.
----
-
-##  Features
-
-- Anonymous enumeration (SMB, LDAP, RPC, FTP)
-- Credential spraying across multiple services
-- NTLM hash authentication support (Pass-the-Hash)
-- Default multi-tool scan automation
-- SMB brute-force mode
-- Built-in output filtering for quick result identification
-- Supports multiple targets (IP ranges like `192.168.1.10-20`)
+> **An opinionated Active Directory recon tool** built to fast scan, filter noise, and surface what actually matters.<br>
+> Made while grinding for **OSCP+**. Tested in pain.<br>
+> It's basically a wrapper over `nxc`,`impacket` and other tools to avoid missing common checks
 
 ---
 
-## Requirements
+## What it does
 
-Make sure the following tools are installed and available in your `$PATH`:
+One script. One target IP. Hits every relevant AD attack surface in seconds.
 
-- `crackmapexec`
-- `smbmap`
-- `rpcclient`
-- `ldapsearch`
-- `impacket-wmiexec`
-- `impacket-psexec`
+- **Anonymous recon** — null sessions, guest auth, RID brute, LDAP leak
+- **Credential testing** — sprays across SMB, WinRM, RDP, LDAP, SSH, FTP, MSSQL, RPC, WMI, PsExec
+- **Pass-the-Hash** — full support across all compatible services
+- **Default scan mode** — multi-tool dump (nxc + smbmap + rpcclient + ldapsearch) saved to file
+- **Smart output** — green highlight on hit
+
+---
+
+## Demo
+
+**Anonymous / no-creds sweep**
+
+![no-creds demo](assets/no-creds.gif)
+
+**Credential spray across all services**
+
+![creds demo](assets/auth.gif)
+
+---
+
+## Install
+
+```bash
+# Clone
+git clone https://github.com/youruser/ad-enum && cd ad-enum
+
+# Install dependencies
+sudo apt install netexec smbmap ldap-utils smbclient impacket-scripts
+pip3 install impacket
+```
+
+The script tells you exactly what's missing on first run and lets you continue anyway.
 
 ---
 
 ## Usage
 
 ```bash
-python3 ad-enum.py -i <target-ip> [options]
-```
-
----
-
-## Options
-
-| Option | Description |
-|------|-------------|
-| `-i, --ip` | Target IP address (required) |
-| `-u, --user` | Username |
-| `-p, --password` | Password |
-| `-H, --hash` | NTLM hash |
-| `--no-creds` | Use anonymous / null authentication |
-| `--scan` | Run default enumeration scan |
-| `--brute-smb` | Perform SMB brute-force |
-| `service` | Target specific service (optional) |
-
----
-
-##  Examples
-
-### Anonymous/guest Credentials spraying
-```bash
+# No creds — anonymous enum (null session, guest, RID brute, LDAP)
 python3 ad-enum.py -i 10.10.10.10 --no-creds
+
+# Test a set of credentials against every service
+python3 ad-enum.py -i 10.10.10.10 -u 'user' -p 'password123'
+
+# Pass-the-Hash
+python3 ad-enum.py -i 10.10.10.10 -u administrator -H 8846f7eaee8fb117ad06bdd830b7586c
+
+# Multi-tool dump (nxc + smbmap + rpcclient + ldapsearch)
+python3 ad-enum.py -i 10.10.10.10 -u 'user' -p 'password123' --scan
+
+# Target one service only
+python3 ad-enum.py -i 10.10.10.10 -u 'user' -p 'password123' smb
 ```
 
-### Default Scan (no creds)
-```bash
-python3 ad-enum.py -i 10.10.10.10 --scan
-```
-
-### Authenticated Scan
-```bash
-python3 ad-enum.py -i 10.10.10.10 -u user -p password123 --scan
-```
-
-### Test Credentials Across All Services
-```bash
-python3 ad-enum.py -i 10.10.10.10 -u administrator -p password123
-```
-
-### Pass-the-Hash
-```bash
-python3 ad-enum.py -i 10.10.10.10 -u administrator -H <ntlm_hash>
-```
-
-### SMB Brute-force
-```bash
-python3 ad-enum.py -i 10.10.10.10 -u users.txt -p passwords.txt --brute-smb
-```
+**Services:** `smb` `ldap` `winrm` `rdp` `mssql` `ftp` `ssh` `rpc` `wmi` `psexec`
 
 ---
 
-## Supported Services
+## ⚖️ Legal
 
-- SMB
-- LDAP
-- FTP
-- SSH
-- RPC
-- WinRM
-- RDP
-- MSSQL
-- WMI
-- PsExec
+This tool is intended **strictly for authorized penetration testing, CTF competitions, and lab environments** (HackTheBox, TryHackMe, OSCP labs, your own infrastructure).
 
----
+Using this against systems you do not own or have **explicit written permission** to test is illegal under the Computer Fraud and Abuse Act (CFAA), the Computer Misuse Act, and equivalent laws worldwide.
 
-
-## Disclaimer
-
-This tool is intended **only for legal penetration testing environments**, labs, and certification practice (e.g., OSCP).  
-Do **not** use it against systems without proper authorization.
-
----
-
-
-
-## 👤 Author
-
-Created as part of personal preparation for OSCP and hands-on AD exploitation practice.
+**The author takes no responsibility for misuse. You are responsible for your own actions.**
