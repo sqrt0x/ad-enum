@@ -18,6 +18,8 @@ One script. One target IP. Hits every relevant AD attack surface in seconds.
 
 ---
 
+> ### **Supported services: ldap,ssh,rpc,smb,winrm,psexec,wmiexec,mssql**
+
 ## Demo
 
 > #  **Anonymous / no-creds sweep**
