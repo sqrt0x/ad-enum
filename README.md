@@ -20,11 +20,12 @@ One script. One target IP. Hits every relevant AD attack surface in seconds.
 
 ## Demo
 
-**Anonymous / no-creds sweep**
+> #  **Anonymous / no-creds sweep**
 
 ![no-creds demo](assets/no-creds.gif)
 
-**Credential spray across all services**
+> #  **Credential spray across all services**
+
 
 ![creds demo](assets/auth.gif)
 
