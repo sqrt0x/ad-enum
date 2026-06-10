@@ -10,31 +10,89 @@ def header(title):
 
 
 tools = [
-    "crackmapexec",
+    "nxc",
     "smbmap",
     "rpcclient",
     "ldapsearch",
-    "impacket-wmiexec",
-    "impacket-psexec"
+    "wmiexec.py",
+    "psexec.py",
+    "impacket-rpcdump"
 ]
 
 
 missing = [tool for tool in tools if not shutil.which(tool)]
+missing_set = set(missing)
 
 if missing:
-    header("[!] Some tools are missing or not found in $PATH:")
-    for tool in missing: print(f" - {tool}")
-    exit(1)
-    
-    
-def crackmapexec(cmd): execme(f"crackmapexec {cmd}")
+	installed = [tool for tool in tools if tool not in missing_set]
+	W  = "\033[0m"
+	R  = "\033[1;31m"
+	Y  = "\033[1;33m"
+	G  = "\033[1;32m"
+	B  = "\033[1;37m"
+	LINE = Y + "═" * 62 + W
+
+	print("\n" + LINE)
+	print(Y + "  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗ " + W)
+	print(Y + "  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝ " + W)
+	print(Y + "  ██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗" + W)
+	print(Y + "  ██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║" + W)
+	print(Y + "  ╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝" + W)
+	print(Y + "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ " + W)
+	print(LINE)
+	print(Y + "         ⚠   MISSING TOOLS DETECTED — READ CAREFULLY   ⚠" + W)
+	print(LINE)
+
+	print(R + "\n  The following tools were NOT found in $PATH:\n" + W)
+	for tool in missing:
+		print(R + f"    ✗  {tool}" + W)
+
+	if installed:
+		print(G + "\n  Installed and ready:\n" + W)
+		for tool in installed:
+			print(G + f"    ✓  {tool}" + W)
+
+	print(Y + "\n  ⚠  Not every scan will run — you WILL miss hits!" + W)
+	print(B + "     Scans requiring missing tools will be silently skipped." + W)
+	print("\n" + LINE + "\n")
+
+	try:
+		choice = input(B + "  Continue anyway? [y/N]: " + W).strip().lower()
+	except KeyboardInterrupt:
+		print("\n[!] Aborted.")
+		exit(1)
+
+	if choice != "y":
+		print(R + "\n[!] Exiting. Install the missing tools first:\n" + W)
+		for tool in missing:
+			print(f"  {R}✗{W}  {tool}")
+		print(Y + "\nTip — most tools are available via:" + W)
+		print("  sudo apt install netexec smbmap ldap-utils smbclient")
+		print("  sudo apt install impacket-scripts")
+		print("  pip3 install impacket\n")
+		exit(0)
+
+	print(G + "\n[*] Continuing with available tools — missing ones will be skipped...\n" + W)
+
+
+def nxc(cmd):
+	if "nxc" in missing_set:
+		print(f"\033[1;33m[!] Skipping nxc command — tool not installed\033[0m")
+		return
+	execme(f"nxc {cmd}")
 
 # cleanup for nxc and cme
-os.system("rm -f ~/.nxc/workspaces/default/*.db &2>/dev/null")
-os.system("rm -f ~/.cme/workspaces/default/*.db &2>/dev/null")
+os.system("rm -f ~/.nxc/workspaces/default/*.db 2>/dev/null")
+os.system("rm -f ~/.cme/workspaces/default/*.db 2>/dev/null")
 
 
 def execme(command):
+	# Check if the command's primary tool is in the missing set
+	base_tool = os.path.basename(command.strip().split()[0])
+	if base_tool in missing_set:
+		print(f"\033[1;33m[!] Skipping '{base_tool}' — tool not installed\033[0m")
+		return
+
 	print(f"\033[3;90m{command}\033[0m")
 	proc = subprocess.Popen(
 		command,
@@ -63,9 +121,13 @@ def execme(command):
 		
 	lines = [l.replace("STATUS_PASSWORD_MUST_CHANGE","[+] STATUS_PASSWORD_MUST_CHANGE") for l in stdout.splitlines()] # this should count as hit even tho it says [-]
 	hits = [line for line in lines if "[+]" in line]
+	unhits = [line for line in lines if "[-]" in line]
 
 	if hits:
 		for hit in hits:print(f"\033[1;48;5;22;38;5;231m  {hit}  \033[0m")
+	elif unhits:
+		for unhit in unhits:print(f"\033[1;48;5;27;38;5;231m  {unhit}  \033[0m")
+
 			
 	elif stderr and (
 		"NT_STATUS_LOGON_FAILURE" not in stderr and
@@ -77,6 +139,12 @@ def execme(command):
 		print("[-] No hit")
 
 def preview_command(cmd,f):
+	# Guard: skip if the primary tool is missing
+	base_tool = os.path.basename(cmd.strip().split()[0])
+	if base_tool in missing_set:
+		print(f"\033[1;33m[!] Skipping '{base_tool}' in scan — tool not installed\033[0m")
+		return
+
 	if cmd.startswith("ldapsearch -x -H ldap://"):
 		first = cmd.find("|")
 		if first != -1:
@@ -105,10 +173,11 @@ def init_scan(args):
 	print(f"\033[1;48;5;117;38;5;16m  Executing commands  \033[0m\n\n")
 	open("default_scan_commands.txt", "w").close()
 	with open("default_scan_commands.txt","at") as f:
+		preview_command(f"smbclient -N -L //$ip/",f)
 		preview_command(f"smbmap -H $ip -u '{username}'  | sed '1,11d'",f)
 		if args.password == "":
-			preview_command(f"crackmapexec smb $ip -u '' -p '' --rid-brute",f)
-		preview_command(f"crackmapexec smb $ip -u '{username}' -p '{password}' --rid-brute",f)
+			preview_command(f"nxc smb $ip -u '' -p '' --rid-brute",f)
+		preview_command(f"nxc smb $ip -u '{username}' -p '{password}' --rid-brute",f)
 		if args.password == "":
 			preview_command('rpcclient -U "" -N $ip -c "querydispinfo;quit"',f)
 		preview_command(fr'''rpcclient -U '{username}%{password}' -N $ip -c "querydispinfo;quit"''',f)
@@ -123,12 +192,13 @@ def init_scan(args):
 def anon_enum(args):
 	header("\n >> Initiating anonymous enumeration!")
 	header("[*] ftp:")
-	crackmapexec(f"ftp {args.ip} -u 'Anonymous' -p ''")
+	nxc(f"ftp {args.ip} -u 'Anonymous' -p ''")
 
 	header("[*] smb:")
-	crackmapexec(f"smb {args.ip} -u 'guest' -p ''")
-	crackmapexec(f"smb {args.ip} -u '' -p ''")
-	crackmapexec(f"smb {args.ip} -u '' -p '' --rid-brute")
+	nxc(f"--timeout 30 -t 1 smb {args.ip} -u 'guest' -p ''")
+	nxc(f"--timeout 30 -t 1 smb {args.ip} -u 'guest' -p 'guest'")
+	nxc(f"--timeout 30 -t 1 smb {args.ip} -u '' -p ''")
+	nxc(f"--timeout 30 -t 1 smb {args.ip} -u '' -p '' --rid-brute")
 
 	header("[*] rpc:")
 	for ip in split_ips(args.ip):
@@ -136,9 +206,9 @@ def anon_enum(args):
 		execme(f"rpcclient -U 'guest' -P 'anything' -N {ip}  -c quit && echo 'RPC                      {ip} 135    UNKNOWN          [+] \"guest%\"'")
 	
 	header("[*] ldap:")
-	crackmapexec(f"ldap {args.ip} -u '' -p ''")
-	crackmapexec(f"ldap {args.ip} -u 'guest' -p ''")
-	print(f">>> if works try : crackmapexec ldap $ip -u '' -p '' -M get-desc-users ")
+	nxc(f"ldap {args.ip} -u '' -p ''")
+	nxc(f"ldap {args.ip} -u 'guest' -p ''")
+	print(f">>> if works try : nxc ldap $ip -u '' -p '' -M get-desc-users ")
 
 def split_ips(ip):
 	if "-" in ip:
@@ -156,8 +226,8 @@ def run(service_name, service_filter):
 def brute_smb(args):
 	header("\n >> Initiating SMB brute-force!")
 	if args.password and args.user:
-		execme(f"crackmapexec smb {args.ip} -u {args.user} -p {args.password} --local-auth")
-		execme(f"crackmapexec smb {args.ip} -u {args.user} -p {args.password} --continue")
+		execme(f"nxc smb {args.ip} -u {args.user} -p {args.password} --local-auth")
+		execme(f"nxc smb {args.ip} -u {args.user} -p {args.password} --continue-on-success")
 	else:
 		print("[-] Please provide both username and password for SMB brute-force.")
 		
@@ -165,34 +235,32 @@ def default_enum(args):
 	if run("ftp", args.service):
 		header("[*] ftp:")
 		if args.password:
-			crackmapexec(f"ftp {args.ip} -u '{args.user}' -p '{args.password}'")
+			nxc(f"ftp {args.ip} -u '{args.user}' -p '{args.password}'")
 		else:
 			print("< ftp doesnt support PtH")
 
 	if run("ssh", args.service):
 		header("[*] ssh:")
 		if args.password:
-			crackmapexec(f"ssh {args.ip} -u '{args.user}' -p '{args.password}'")
+			nxc(f"ssh {args.ip} -u '{args.user}' -p '{args.password}'")
 		else:
 			print("< ssh doesnt support PtH")
 
 	if run("ldap", args.service):
 		header("[*] ldap:")
 		if args.password:
-			crackmapexec(f"ldap {args.ip} -u '{args.user}' -p '{args.password}'")
-			crackmapexec(f"ldap {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
-			print(f">>> if works try : crackmapexec ldap $ip -u '{args.user}' -p '{args.password}' -M get-desc-users ")
+			nxc(f"ldap {args.ip} -u '{args.user}' -p '{args.password}'")
+			print(f">>> if works try : nxc ldap $ip -u '{args.user}' -p '{args.password}' -M get-desc-users ")
 		else:
-			crackmapexec(f"ldap {args.ip} -u '{args.user}' -H '{args.hash}'")
-			crackmapexec(f"ldap {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
+			nxc(f"ldap {args.ip} -u '{args.user}' -H '{args.hash}'")
 	if run("smb", args.service):
 		header("[*] smbclient:")
 		if args.password:
-			crackmapexec(f"smb {args.ip} -u '{args.user}' -p '{args.password}'")
-			crackmapexec(f"smb {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
+			nxc(f"smb {args.ip} -u '{args.user}' -p '{args.password}'")
+			nxc(f"smb {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
 		else:
-			crackmapexec(f"smb {args.ip} -u '{args.user}' -H '{args.hash}'")
-			crackmapexec(f"smb {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
+			nxc(f"smb {args.ip} -u '{args.user}' -H '{args.hash}'")
+			nxc(f"smb {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
 
 	if run("rpc", args.service):
 		header("[*] rpc:")
@@ -206,26 +274,26 @@ def default_enum(args):
 	if run("winrm", args.service):
 		header("[*] winrm:")
 		if args.password:
-			crackmapexec(f"winrm {args.ip} -u '{args.user}' -p '{args.password}' ")
-			crackmapexec(f"winrm {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
+			nxc(f"winrm {args.ip} -u '{args.user}' -p '{args.password}' ")
+			nxc(f"winrm {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
 		else:
-			crackmapexec(f"winrm {args.ip} -u '{args.user}' -H '{args.hash}' ")
-			crackmapexec(f"winrm {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
+			nxc(f"winrm {args.ip} -u '{args.user}' -H '{args.hash}' ")
+			nxc(f"winrm {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
 	
 	if run("rdp", args.service):
 		header("[*] rdp:")
 		if args.password:
-			crackmapexec(f"rdp {args.ip} -u '{args.user}' -p '{args.password}'")
-			crackmapexec(f"rdp {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
+			nxc(f"rdp {args.ip} -u '{args.user}' -p '{args.password}'")
+			nxc(f"rdp {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
 		else:
-			crackmapexec(f"rdp {args.ip} -u '{args.user}' -H '{args.hash}'")
-			crackmapexec(f"rdp {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
+			nxc(f"rdp {args.ip} -u '{args.user}' -H '{args.hash}'")
+			nxc(f"rdp {args.ip} -u '{args.user}' -H '{args.hash}' --local-auth")
 	
 	if run("mssql", args.service):
 		header("[*] mssql:")
 		if args.password:
-			crackmapexec(f"mssql {args.ip} -u '{args.user}' -p '{args.password}'")
-			crackmapexec(f"mssql {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
+			nxc(f"mssql {args.ip} -u '{args.user}' -p '{args.password}'")
+			nxc(f"mssql {args.ip} -u '{args.user}' -p '{args.password}' --local-auth")
 		else:
 			print("< mssql doesnt support PtH")
 	
@@ -290,5 +358,3 @@ Examples:
 
 if __name__ == "__main__":
 	main()
-
-
